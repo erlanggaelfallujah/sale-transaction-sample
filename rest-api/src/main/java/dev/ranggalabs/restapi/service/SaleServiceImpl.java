@@ -6,6 +6,8 @@ import dev.ranggalabs.common.util.ResponseCode;
 import dev.ranggalabs.enitity.Account;
 import dev.ranggalabs.enitity.Balance;
 import dev.ranggalabs.enitity.Card;
+import dev.ranggalabs.restapi.model.BalanceInquiryValidation;
+import dev.ranggalabs.restapi.model.BaseModel;
 import dev.ranggalabs.restapi.repository.AccountRepository;
 import dev.ranggalabs.restapi.repository.BalanceRepository;
 import dev.ranggalabs.restapi.repository.CardRepository;
@@ -21,11 +23,7 @@ import java.math.BigDecimal;
 public class SaleServiceImpl extends BaseService implements SaleService {
 
     @Autowired
-    private CardRepository cardRepository;
-    @Autowired
-    private AccountRepository accountRepository;
-    @Autowired
-    private BalanceRepository balanceRepository;
+    private BalanceService balanceService;
 
     @Override
     public BaseResponse sale(String printNumber, SaleRequest saleRequest) {
@@ -33,49 +31,30 @@ public class SaleServiceImpl extends BaseService implements SaleService {
             return constructBaseResponse(ResponseCode.AMOUNT_EMPTY.getCode(), ResponseCode.AMOUNT_EMPTY.getDetail(), printNumber, saleRequest.getAmount());
         }
 
-        Balance balance = null;
-        // validasi card
-        Card card = cardRepository.findOneByPrintNumber(printNumber);
-        if (card == null) {
-            return constructBaseResponse(ResponseCode.CARD_NOT_FOUND.getCode(), ResponseCode.CARD_NOT_FOUND.getDetail(), printNumber, saleRequest.getAmount());
-        }
-        if (!card.isStatus()) {
-            return constructBaseResponse(ResponseCode.CARD_NOT_ACTIVE.getCode(),ResponseCode.CARD_NOT_ACTIVE.getDetail(),printNumber,saleRequest.getAmount());
+        BalanceInquiryValidation balanceInquiryValidation = balanceService.validateBalanceInquiry(printNumber);
+        if(!balanceInquiryValidation.getCode().equals(ResponseCode.APPROVED.getCode())){
+            return constructBaseResponse(balanceInquiryValidation.getCode(),balanceInquiryValidation.getMessage(),printNumber,null);
         }
 
-        // validasi account
-        Account account = accountRepository.findOneByCif(card.getCif());
-        if (account == null) {
-            return constructBaseResponse(ResponseCode.ACCOUNT_NOT_FOUND.getCode(),ResponseCode.ACCOUNT_NOT_FOUND.getDetail(),printNumber,saleRequest.getAmount());
-        }
-        if (!account.isStatus()) {
-            return constructBaseResponse(ResponseCode.ACCOUNT_NOT_ACTIVE.getCode(),ResponseCode.ACCOUNT_NOT_ACTIVE.getDetail(),printNumber,saleRequest.getAmount());
-        }
-
-        // validasi balance
-        balance = balanceRepository.findOneByAccountId(account.getId());
-        if (balance == null) {
-            return constructBaseResponse(ResponseCode.CIF_BALANCE_NOT_FOUND.getCode(),ResponseCode.CIF_BALANCE_NOT_FOUND.getDetail(),printNumber,saleRequest.getAmount());
-        }
-
-        int resVal1 = balance.getAmount().compareTo(BigDecimal.ZERO);
+        BigDecimal balance = balanceInquiryValidation.getBalance().getAmount();
+        int resVal1 = balance.compareTo(BigDecimal.ZERO);
         if(resVal1==0 || resVal1==-1){
             return constructBaseResponse(ResponseCode.INSUFFICIENT_BALANCE.getCode(),ResponseCode.INSUFFICIENT_BALANCE.getDetail(),printNumber,saleRequest.getAmount());
         }
 
         // balance kurang dari amount
-        int resVal2 = balance.getAmount().compareTo(saleRequest.getAmount());
+        int resVal2 = balance.compareTo(saleRequest.getAmount());
         if(resVal2==-1){
             return constructBaseResponse(ResponseCode.INSUFFICIENT_BALANCE.getCode(),ResponseCode.INSUFFICIENT_BALANCE.getDetail(),printNumber,saleRequest.getAmount());
         }
 
         // update balance
-        BigDecimal remainingBalance = balance.getAmount().subtract(saleRequest.getAmount());
-        try{
-            balanceRepository.update(balance,remainingBalance);
-        }catch (Exception e) {
-            return constructBaseResponse(ResponseCode.SYSTEM_ERROR.getCode(),ResponseCode.SYSTEM_ERROR.getDetail(),printNumber,saleRequest.getAmount());
+        BigDecimal remainingBalance = balance.subtract(saleRequest.getAmount());
+        BaseModel baseModel = balanceService.update(balanceInquiryValidation.getBalance(),remainingBalance);
+        if(!baseModel.getCode().equals(ResponseCode.APPROVED.getCode())){
+            return constructBaseResponse(baseModel.getCode(),baseModel.getMessage(),printNumber,saleRequest.getAmount());
         }
+
         return constructBaseResponse(ResponseCode.APPROVED.getCode(),ResponseCode.APPROVED.getDetail(),printNumber,remainingBalance);
     }
 }
