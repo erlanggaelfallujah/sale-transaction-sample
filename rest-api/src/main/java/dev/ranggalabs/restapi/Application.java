@@ -8,7 +8,7 @@ import org.springframework.context.annotation.ComponentScan;
  * Created by erlangga on 4/25/2017.
  */
 @SpringBootApplication
-@ComponentScan
+//@ComponentScan
 public class Application {
     public static void main(String[] args) {
         SpringApplication.run(Application.class, args);
