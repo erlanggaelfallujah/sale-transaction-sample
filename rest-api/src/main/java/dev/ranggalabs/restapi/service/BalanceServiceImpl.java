@@ -2,19 +2,17 @@ package dev.ranggalabs.restapi.service;
 
 import dev.ranggalabs.common.dto.BaseResponse;
 import dev.ranggalabs.common.util.ResponseCode;
-import dev.ranggalabs.enitity.Account;
 import dev.ranggalabs.enitity.Balance;
-import dev.ranggalabs.enitity.Card;
 import dev.ranggalabs.restapi.model.BalanceInquiryValidation;
 import dev.ranggalabs.restapi.model.BaseModel;
 import dev.ranggalabs.restapi.model.CardValidation;
-import dev.ranggalabs.restapi.repository.AccountRepository;
 import dev.ranggalabs.restapi.repository.BalanceRepository;
-import dev.ranggalabs.restapi.repository.CardRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Created by erlangga on 4/25/2017.
@@ -73,12 +71,12 @@ public class BalanceServiceImpl extends BaseService implements BalanceService {
     }
 
     @Override
-    public BaseResponse inquiryCompletableFuture(String printNumber) {
-        return null;
-    }
+    @Async
+    public CompletableFuture<BaseResponse> asyncInquiry(String printNumber) {
+        /*return CompletableFuture.supplyAsync(() -> {
+            return inquiry(printNumber);
+        });*/
 
-    @Override
-    public BaseResponse inquiryAsync(String printNumber) {
-        return null;
+        return CompletableFuture.completedFuture(inquiry(printNumber));
     }
 }
