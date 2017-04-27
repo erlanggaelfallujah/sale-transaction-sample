@@ -5,6 +5,7 @@ import dev.ranggalabs.common.dto.SaleRequest;
 import dev.ranggalabs.common.util.ResponseCode;
 import dev.ranggalabs.restapi.model.BalanceInquiryValidation;
 import dev.ranggalabs.restapi.model.BaseModel;
+import io.reactivex.Observable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -59,5 +60,13 @@ public class SaleServiceImpl extends BaseService implements SaleService {
     @Async
     public CompletableFuture<BaseResponse> asyncSale(String printNumber, SaleRequest saleRequest) {
         return CompletableFuture.completedFuture(sale(printNumber,saleRequest));
+    }
+
+    @Override
+    public Observable<BaseResponse> asyncSaleObs(String printNumber, SaleRequest saleRequest) {
+        return Observable.create(s->{
+           s.onNext(sale(printNumber,saleRequest));
+            s.onComplete();
+        });
     }
 }
