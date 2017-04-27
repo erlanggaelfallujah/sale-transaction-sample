@@ -3,18 +3,14 @@ package dev.ranggalabs.restapi.service;
 import dev.ranggalabs.common.dto.BaseResponse;
 import dev.ranggalabs.common.dto.SaleRequest;
 import dev.ranggalabs.common.util.ResponseCode;
-import dev.ranggalabs.enitity.Account;
-import dev.ranggalabs.enitity.Balance;
-import dev.ranggalabs.enitity.Card;
 import dev.ranggalabs.restapi.model.BalanceInquiryValidation;
 import dev.ranggalabs.restapi.model.BaseModel;
-import dev.ranggalabs.restapi.repository.AccountRepository;
-import dev.ranggalabs.restapi.repository.BalanceRepository;
-import dev.ranggalabs.restapi.repository.CardRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Created by erlangga on 4/26/2017.
@@ -26,6 +22,7 @@ public class SaleServiceImpl extends BaseService implements SaleService {
     private BalanceService balanceService;
 
     @Override
+    @Async
     public BaseResponse sale(String printNumber, SaleRequest saleRequest) {
         if (saleRequest.getAmount() == null) {
             return constructBaseResponse(ResponseCode.AMOUNT_EMPTY.getCode(), ResponseCode.AMOUNT_EMPTY.getDetail(), printNumber, saleRequest.getAmount());
@@ -56,5 +53,11 @@ public class SaleServiceImpl extends BaseService implements SaleService {
         }
 
         return constructBaseResponse(ResponseCode.APPROVED.getCode(),ResponseCode.APPROVED.getDetail(),printNumber,remainingBalance);
+    }
+
+    @Override
+    @Async
+    public CompletableFuture<BaseResponse> asyncSale(String printNumber, SaleRequest saleRequest) {
+        return CompletableFuture.completedFuture(sale(printNumber,saleRequest));
     }
 }
