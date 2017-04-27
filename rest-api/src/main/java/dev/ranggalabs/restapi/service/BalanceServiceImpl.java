@@ -7,12 +7,15 @@ import dev.ranggalabs.restapi.model.BalanceInquiryValidation;
 import dev.ranggalabs.restapi.model.BaseModel;
 import dev.ranggalabs.restapi.model.CardValidation;
 import dev.ranggalabs.restapi.repository.BalanceRepository;
+import io.reactivex.Observable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Created by erlangga on 4/25/2017.
@@ -22,6 +25,8 @@ public class BalanceServiceImpl extends BaseService implements BalanceService {
 
     @Autowired
     private BalanceRepository balanceRepository;
+
+    private final ExecutorService customObservableExecutor = Executors.newFixedThreadPool(10);
 
     @Override
     public BaseResponse inquiry(String printNumber) {
@@ -79,4 +84,26 @@ public class BalanceServiceImpl extends BaseService implements BalanceService {
 
         return CompletableFuture.completedFuture(inquiry(printNumber));
     }
+
+/*    @Override
+    public Observable<BaseResponse> asyncInquiryObs(String printNumber) {
+        return Observable.<BaseResponse>create(s -> {
+           s.onNext(inquiry(printNumber));
+            s.onCompleted();
+        }).onErrorReturn(throwable -> {
+            BaseResponse baseResponse = new BaseResponse();
+            baseResponse.setCode(ResponseCode.SYSTEM_ERROR.getCode());
+            baseResponse.setMessage(ResponseCode.SYSTEM_ERROR.getDetail());
+            return baseResponse;
+        }).subscribeOn(Schedulers.from(customObservableExecutor));
+    }*/
+
+    @Override
+    public Observable<BaseResponse> asyncInquiryObs(String printNumber) {
+        return Observable.create(s -> {
+            s.onNext(inquiry(printNumber));
+            s.onComplete();
+        });
+    }
+
 }

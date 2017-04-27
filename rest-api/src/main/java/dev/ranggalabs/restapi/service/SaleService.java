@@ -2,6 +2,7 @@ package dev.ranggalabs.restapi.service;
 
 import dev.ranggalabs.common.dto.BaseResponse;
 import dev.ranggalabs.common.dto.SaleRequest;
+import io.reactivex.Observable;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -11,4 +12,5 @@ import java.util.concurrent.CompletableFuture;
 public interface SaleService {
     BaseResponse sale(String printNumber, SaleRequest saleRequest);
     CompletableFuture<BaseResponse> asyncSale(String printNumber, SaleRequest saleRequest);
+    Observable<BaseResponse> asyncSaleObs(String printNumber, SaleRequest saleRequest);
 }

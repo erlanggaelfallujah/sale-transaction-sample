@@ -6,11 +6,10 @@ import dev.ranggalabs.common.dto.SaleRequest;
 import dev.ranggalabs.restapi.service.BalanceService;
 import dev.ranggalabs.restapi.service.SaleService;
 import dev.ranggalabs.restapi.util.Json;
+import io.reactivex.Observable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.context.request.async.DeferredResult;
-
-import java.util.concurrent.ExecutionException;
 
 /**
  * Created by erlangga on 4/25/2017.
@@ -46,6 +45,14 @@ public class BalanceController {
         return result;
     }
 
+    @RequestMapping(method = RequestMethod.POST, value = "/async-obs/sale/{printNumber}")
+    public DeferredResult<BaseResponse> asyncSaleObs(@PathVariable String printNumber, @RequestBody SaleRequest saleRequest){
+        Observable<BaseResponse> baseResponseObservable = saleService.asyncSaleObs(printNumber,saleRequest);
+        DeferredResult<BaseResponse> baseResponseDeferredResult = new DeferredResult<>();
+        baseResponseObservable.subscribe(s->baseResponseDeferredResult.setResult(s),e->baseResponseDeferredResult.setErrorResult(e));
+        return baseResponseDeferredResult;
+    }
+
     @RequestMapping(method = RequestMethod.GET, value = "/async/inquiry/{printNumber}")
     public DeferredResult<JsonNode> asyncInquiry(@PathVariable String printNumber){
         DeferredResult<JsonNode> result = new DeferredResult<>();
@@ -65,4 +72,13 @@ public class BalanceController {
 
         return result;
     }
+
+    @RequestMapping(method = RequestMethod.GET, value = "/async-obs/inquiry/{printNumber}")
+    public DeferredResult<BaseResponse> asyncInquiryObs(@PathVariable String printNumber){
+        Observable<BaseResponse> o = balanceService.asyncInquiryObs(printNumber);
+        DeferredResult<BaseResponse> deffered = new DeferredResult<>();
+        o.subscribe(m->deffered.setResult(m),e->deffered.setErrorResult(e));
+        return deffered;
+    }
+
 }
