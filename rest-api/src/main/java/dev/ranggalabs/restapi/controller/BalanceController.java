@@ -3,6 +3,7 @@ package dev.ranggalabs.restapi.controller;
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.ranggalabs.common.dto.BaseResponse;
 import dev.ranggalabs.common.dto.SaleRequest;
+import dev.ranggalabs.restapi.model.CardValidation;
 import dev.ranggalabs.restapi.service.BalanceService;
 import dev.ranggalabs.restapi.service.SaleService;
 import dev.ranggalabs.restapi.util.Json;
@@ -76,6 +77,22 @@ public class BalanceController {
     @RequestMapping(method = RequestMethod.GET, value = "/async-obs/inquiry/{printNumber}")
     public DeferredResult<BaseResponse> asyncInquiryObs(@PathVariable String printNumber){
         Observable<BaseResponse> o = balanceService.asyncInquiryObs(printNumber);
+        DeferredResult<BaseResponse> deffered = new DeferredResult<>();
+        o.subscribe(m->deffered.setResult(m),e->deffered.setErrorResult(e));
+        return deffered;
+    }
+
+    @RequestMapping(method = RequestMethod.GET, value = "/async-obs/validation/{printNumber}")
+    public DeferredResult<CardValidation> asyncCardValidationObs(@PathVariable String printNumber){
+        Observable<CardValidation> cardValidation = balanceService.asyncCardValidation(printNumber);
+        DeferredResult<CardValidation> deffered = new DeferredResult<>();
+        cardValidation.subscribe(m->deffered.setResult(m),e->deffered.setErrorResult(e));
+        return deffered;
+    }
+
+    @RequestMapping(method = RequestMethod.GET, value = "/v2/async-obs/inquiry/{printNumber}")
+    public DeferredResult<BaseResponse> asyncInquiryObsV2(@PathVariable String printNumber){
+        Observable<BaseResponse> o = balanceService.inquiryObs(printNumber);
         DeferredResult<BaseResponse> deffered = new DeferredResult<>();
         o.subscribe(m->deffered.setResult(m),e->deffered.setErrorResult(e));
         return deffered;

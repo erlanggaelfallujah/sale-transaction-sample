@@ -8,6 +8,9 @@ import dev.ranggalabs.restapi.model.BaseModel;
 import dev.ranggalabs.restapi.model.CardValidation;
 import dev.ranggalabs.restapi.repository.BalanceRepository;
 import io.reactivex.Observable;
+import io.reactivex.annotations.NonNull;
+import io.reactivex.functions.Function;
+import io.reactivex.schedulers.Schedulers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -35,6 +38,46 @@ public class BalanceServiceImpl extends BaseService implements BalanceService {
             return constructBaseResponse(balanceInquiryValidation.getCode(),balanceInquiryValidation.getMessage(),printNumber,null);
         }
         return constructBaseResponse(ResponseCode.APPROVED.getCode(),ResponseCode.APPROVED.getDetail(),printNumber,balanceInquiryValidation.getBalance().getAmount());
+    }
+
+    @Override
+    public Observable<BaseResponse> inquiryObs(String printNumber) {
+        return validateBalanceInquiryObs(printNumber).map(new Function<BalanceInquiryValidation, BaseResponse>() {
+            @Override
+            public BaseResponse apply(@NonNull BalanceInquiryValidation balanceInquiryValidation) throws Exception {
+                if(!balanceInquiryValidation.getCode().equals(ResponseCode.APPROVED.getCode())){
+                    return constructBaseResponse(balanceInquiryValidation.getCode(),balanceInquiryValidation.getMessage(),printNumber,null);
+                }
+                return constructBaseResponse(ResponseCode.APPROVED.getCode(),ResponseCode.APPROVED.getDetail(),printNumber,balanceInquiryValidation.getBalance().getAmount());
+            }
+        });
+    }
+
+    @Override
+    public Observable<BalanceInquiryValidation> validateBalanceInquiryObs(String printNumber) {
+        return validationObs(printNumber).map(new Function<CardValidation, BalanceInquiryValidation>() {
+            @Override
+            public BalanceInquiryValidation apply(@NonNull CardValidation cardValidation) throws Exception {
+                BalanceInquiryValidation balanceInquiryValidation = new BalanceInquiryValidation();
+                if(!cardValidation.getCode().equals(ResponseCode.APPROVED.getCode())){
+                    balanceInquiryValidation.setCode(cardValidation.getCode());
+                    balanceInquiryValidation.setMessage(cardValidation.getMessage());
+                    return balanceInquiryValidation;
+                }
+
+                Balance balance = balanceRepository.findOneByAccountId(cardValidation.getAccountId());
+                if(balance==null){
+                    balanceInquiryValidation.setCode(ResponseCode.CIF_BALANCE_NOT_FOUND.getCode());
+                    balanceInquiryValidation.setMessage(ResponseCode.CIF_BALANCE_NOT_FOUND.getDetail());
+                    return balanceInquiryValidation;
+                }
+
+                balanceInquiryValidation.setCode(ResponseCode.APPROVED.getCode());
+                balanceInquiryValidation.setMessage(ResponseCode.APPROVED.getDetail());
+                balanceInquiryValidation.setBalance(balance);
+                return balanceInquiryValidation;
+            }
+        });
     }
 
     @Override
@@ -104,6 +147,11 @@ public class BalanceServiceImpl extends BaseService implements BalanceService {
             s.onNext(inquiry(printNumber));
             s.onComplete();
         });
+    }
+
+    @Override
+    public Observable<CardValidation> asyncCardValidation(String printNumber) {
+        return validationObs(printNumber).subscribeOn(Schedulers.from(customObservableExecutor));
     }
 
 }

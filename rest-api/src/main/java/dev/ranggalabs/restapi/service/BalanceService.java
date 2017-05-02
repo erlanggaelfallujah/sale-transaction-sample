@@ -4,6 +4,7 @@ import dev.ranggalabs.common.dto.BaseResponse;
 import dev.ranggalabs.enitity.Balance;
 import dev.ranggalabs.restapi.model.BalanceInquiryValidation;
 import dev.ranggalabs.restapi.model.BaseModel;
+import dev.ranggalabs.restapi.model.CardValidation;
 import io.reactivex.Observable;
 
 import java.math.BigDecimal;
@@ -14,9 +15,12 @@ import java.util.concurrent.CompletableFuture;
  */
 public interface BalanceService {
     BaseResponse inquiry(String printNumber);
+    Observable<BaseResponse> inquiryObs(String printNumber);
     BalanceInquiryValidation validateBalanceInquiry(String printNumber);
+    Observable<BalanceInquiryValidation> validateBalanceInquiryObs(String printNumber);
     BaseModel update(Balance balance, BigDecimal remainingBalance);
 
     CompletableFuture<BaseResponse> asyncInquiry(String printNumber);
     Observable<BaseResponse> asyncInquiryObs(String printNumber);
+    Observable<CardValidation> asyncCardValidation(String printNumber);
 }
