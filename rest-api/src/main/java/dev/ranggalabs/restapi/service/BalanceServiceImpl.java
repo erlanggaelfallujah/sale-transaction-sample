@@ -29,7 +29,7 @@ public class BalanceServiceImpl extends BaseService implements BalanceService {
     @Autowired
     private BalanceRepository balanceRepository;
 
-    private final ExecutorService customObservableExecutor = Executors.newFixedThreadPool(10);
+    private final ExecutorService customObservableExecutor = Executors.newFixedThreadPool(5);
 
     @Override
     public BaseResponse inquiry(String printNumber) {
@@ -41,7 +41,7 @@ public class BalanceServiceImpl extends BaseService implements BalanceService {
     }
 
     @Override
-    public Observable<BaseResponse> inquiryObs(String printNumber) {
+    public Observable<BaseResponse> inquiryObsV2(String printNumber) {
         return validateBalanceInquiryObs(printNumber).map(new Function<BalanceInquiryValidation, BaseResponse>() {
             @Override
             public BaseResponse apply(@NonNull BalanceInquiryValidation balanceInquiryValidation) throws Exception {
@@ -129,7 +129,7 @@ public class BalanceServiceImpl extends BaseService implements BalanceService {
     }
 
 /*    @Override
-    public Observable<BaseResponse> asyncInquiryObs(String printNumber) {
+    public Observable<BaseResponse> inquiryObs(String printNumber) {
         return Observable.<BaseResponse>create(s -> {
            s.onNext(inquiry(printNumber));
             s.onCompleted();
@@ -142,15 +142,16 @@ public class BalanceServiceImpl extends BaseService implements BalanceService {
     }*/
 
     @Override
-    public Observable<BaseResponse> asyncInquiryObs(String printNumber) {
-        return Observable.create(s -> {
+    public Observable<BaseResponse> inquiryObs(String printNumber) {
+        return Observable.<BaseResponse>create(s -> {
             s.onNext(inquiry(printNumber));
             s.onComplete();
-        });
+        }).subscribeOn(Schedulers.from(customObservableExecutor));
     }
 
     @Override
-    public Observable<CardValidation> asyncCardValidation(String printNumber) {
+    public Observable<CardValidation> cardValidationObs(String printNumber) {
+        //ExecutorService service = Executors.newSingleThreadExecutor();
         return validationObs(printNumber).subscribeOn(Schedulers.from(customObservableExecutor));
     }
 
