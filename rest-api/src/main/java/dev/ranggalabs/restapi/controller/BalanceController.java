@@ -46,10 +46,18 @@ public class BalanceController {
         return result;
     }
 
-    @RequestMapping(method = RequestMethod.POST, value = "/async-obs/sale/{printNumber}")
-    public DeferredResult<BaseResponse> asyncSaleObs(@PathVariable String printNumber, @RequestBody SaleRequest saleRequest){
-        Observable<BaseResponse> baseResponseObservable = saleService.asyncSaleObs(printNumber,saleRequest);
+    @RequestMapping(method = RequestMethod.POST, value = "/obs/sale/{printNumber}")
+    public DeferredResult<BaseResponse> saleObs(@PathVariable String printNumber, @RequestBody SaleRequest saleRequest){
         DeferredResult<BaseResponse> baseResponseDeferredResult = new DeferredResult<>();
+        Observable<BaseResponse> baseResponseObservable = saleService.saleObs(printNumber,saleRequest);
+        baseResponseObservable.subscribe(s->baseResponseDeferredResult.setResult(s),e->baseResponseDeferredResult.setErrorResult(e));
+        return baseResponseDeferredResult;
+    }
+
+    @RequestMapping(method = RequestMethod.POST, value = "/v2/obs/sale/{printNumber}")
+    public DeferredResult<BaseResponse> saleObsV2(@PathVariable String printNumber, @RequestBody SaleRequest saleRequest){
+        DeferredResult<BaseResponse> baseResponseDeferredResult = new DeferredResult<>();
+        Observable<BaseResponse> baseResponseObservable = saleService.saleObsV2(printNumber,saleRequest);
         baseResponseObservable.subscribe(s->baseResponseDeferredResult.setResult(s),e->baseResponseDeferredResult.setErrorResult(e));
         return baseResponseDeferredResult;
     }
@@ -74,25 +82,25 @@ public class BalanceController {
         return result;
     }
 
-    @RequestMapping(method = RequestMethod.GET, value = "/async-obs/inquiry/{printNumber}")
-    public DeferredResult<BaseResponse> asyncInquiryObs(@PathVariable String printNumber){
-        Observable<BaseResponse> o = balanceService.asyncInquiryObs(printNumber);
+    @RequestMapping(method = RequestMethod.GET, value = "/obs/inquiry/{printNumber}")
+    public DeferredResult<BaseResponse> inquiryObs(@PathVariable String printNumber){
+        Observable<BaseResponse> o = balanceService.inquiryObs(printNumber);
         DeferredResult<BaseResponse> deffered = new DeferredResult<>();
         o.subscribe(m->deffered.setResult(m),e->deffered.setErrorResult(e));
         return deffered;
     }
 
-    @RequestMapping(method = RequestMethod.GET, value = "/async-obs/validation/{printNumber}")
-    public DeferredResult<CardValidation> asyncCardValidationObs(@PathVariable String printNumber){
-        Observable<CardValidation> cardValidation = balanceService.asyncCardValidation(printNumber);
+    @RequestMapping(method = RequestMethod.GET, value = "/obs/validation/{printNumber}")
+    public DeferredResult<CardValidation> cardValidationObs(@PathVariable String printNumber){
+        Observable<CardValidation> cardValidation = balanceService.cardValidationObs(printNumber);
         DeferredResult<CardValidation> deffered = new DeferredResult<>();
         cardValidation.subscribe(m->deffered.setResult(m),e->deffered.setErrorResult(e));
         return deffered;
     }
 
-    @RequestMapping(method = RequestMethod.GET, value = "/v2/async-obs/inquiry/{printNumber}")
-    public DeferredResult<BaseResponse> asyncInquiryObsV2(@PathVariable String printNumber){
-        Observable<BaseResponse> o = balanceService.inquiryObs(printNumber);
+    @RequestMapping(method = RequestMethod.GET, value = "/v2/obs/inquiry/{printNumber}")
+    public DeferredResult<BaseResponse> inquiryObsV2(@PathVariable String printNumber){
+        Observable<BaseResponse> o = balanceService.inquiryObsV2(printNumber);
         DeferredResult<BaseResponse> deffered = new DeferredResult<>();
         o.subscribe(m->deffered.setResult(m),e->deffered.setErrorResult(e));
         return deffered;

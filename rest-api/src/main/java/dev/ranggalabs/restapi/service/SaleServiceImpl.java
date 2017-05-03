@@ -6,6 +6,8 @@ import dev.ranggalabs.common.util.ResponseCode;
 import dev.ranggalabs.restapi.model.BalanceInquiryValidation;
 import dev.ranggalabs.restapi.model.BaseModel;
 import io.reactivex.Observable;
+import io.reactivex.annotations.NonNull;
+import io.reactivex.functions.Function;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -23,7 +25,6 @@ public class SaleServiceImpl extends BaseService implements SaleService {
     private BalanceService balanceService;
 
     @Override
-    @Async
     public BaseResponse sale(String printNumber, SaleRequest saleRequest) {
         if (saleRequest.getAmount() == null) {
             return constructBaseResponse(ResponseCode.AMOUNT_EMPTY.getCode(), ResponseCode.AMOUNT_EMPTY.getDetail(), printNumber, saleRequest.getAmount());
@@ -34,26 +35,12 @@ public class SaleServiceImpl extends BaseService implements SaleService {
             return constructBaseResponse(balanceInquiryValidation.getCode(),balanceInquiryValidation.getMessage(),printNumber,null);
         }
 
-        BigDecimal balance = balanceInquiryValidation.getBalance().getAmount();
-        int resVal1 = balance.compareTo(BigDecimal.ZERO);
-        if(resVal1==0 || resVal1==-1){
-            return constructBaseResponse(ResponseCode.INSUFFICIENT_BALANCE.getCode(),ResponseCode.INSUFFICIENT_BALANCE.getDetail(),printNumber,saleRequest.getAmount());
+        BaseResponse baseResponse = validate(balanceInquiryValidation,saleRequest,printNumber);
+        if(!baseResponse.getCode().equals(ResponseCode.APPROVED.getCode())){
+            return baseResponse;
         }
 
-        // balance kurang dari amount
-        int resVal2 = balance.compareTo(saleRequest.getAmount());
-        if(resVal2==-1){
-            return constructBaseResponse(ResponseCode.INSUFFICIENT_BALANCE.getCode(),ResponseCode.INSUFFICIENT_BALANCE.getDetail(),printNumber,saleRequest.getAmount());
-        }
-
-        // update balance
-        BigDecimal remainingBalance = balance.subtract(saleRequest.getAmount());
-        BaseModel baseModel = balanceService.update(balanceInquiryValidation.getBalance(),remainingBalance);
-        if(!baseModel.getCode().equals(ResponseCode.APPROVED.getCode())){
-            return constructBaseResponse(baseModel.getCode(),baseModel.getMessage(),printNumber,saleRequest.getAmount());
-        }
-
-        return constructBaseResponse(ResponseCode.APPROVED.getCode(),ResponseCode.APPROVED.getDetail(),printNumber,remainingBalance);
+        return processSale(balanceInquiryValidation,saleRequest,baseResponse,printNumber);
     }
 
     @Override
@@ -63,10 +50,54 @@ public class SaleServiceImpl extends BaseService implements SaleService {
     }
 
     @Override
-    public Observable<BaseResponse> asyncSaleObs(String printNumber, SaleRequest saleRequest) {
+    public Observable<BaseResponse> saleObs(String printNumber, SaleRequest saleRequest) {
         return Observable.create(s->{
            s.onNext(sale(printNumber,saleRequest));
             s.onComplete();
         });
     }
+
+    private BaseResponse validate(BalanceInquiryValidation balanceInquiryValidation, SaleRequest saleRequest, String printNumber){
+        BigDecimal balance = balanceInquiryValidation.getBalance().getAmount();
+        int resVal1 = balance.compareTo(BigDecimal.ZERO);
+        if(resVal1==0 || resVal1==-1){
+            return constructBaseResponse(ResponseCode.INSUFFICIENT_BALANCE.getCode(),ResponseCode.INSUFFICIENT_BALANCE.getDetail(),printNumber,saleRequest.getAmount());
+        }
+        int resVal2 = balance.compareTo(saleRequest.getAmount());
+        if(resVal2==-1){
+            return constructBaseResponse(ResponseCode.INSUFFICIENT_BALANCE.getCode(),ResponseCode.INSUFFICIENT_BALANCE.getDetail(),printNumber,saleRequest.getAmount());
+        }
+        return constructBaseResponse(ResponseCode.APPROVED.getCode(),ResponseCode.APPROVED.getDetail(),printNumber,balance);
+    }
+
+    private BaseResponse processSale(BalanceInquiryValidation balanceInquiryValidation, SaleRequest saleRequest, BaseResponse baseResponse, String printNumber){
+        // update balance
+        BigDecimal remainingBalance = baseResponse.getBalance().subtract(saleRequest.getAmount());
+        BaseModel baseModel = balanceService.update(balanceInquiryValidation.getBalance(),remainingBalance);
+        if(!baseModel.getCode().equals(ResponseCode.APPROVED.getCode())){
+            return constructBaseResponse(baseModel.getCode(),baseModel.getMessage(),printNumber,saleRequest.getAmount());
+        }
+        return constructBaseResponse(ResponseCode.APPROVED.getCode(),ResponseCode.APPROVED.getDetail(),printNumber,remainingBalance);
+    }
+
+    @Override
+    public Observable<BaseResponse> saleObsV2(String printNumber, SaleRequest saleRequest) {
+        Observable<BalanceInquiryValidation> balanceInquiryValidation = balanceService.validateBalanceInquiryObs(printNumber);
+        return balanceInquiryValidation.map(new Function<BalanceInquiryValidation, BaseResponse>() {
+            @Override
+            public BaseResponse apply(@NonNull BalanceInquiryValidation balanceInquiryValidation) throws Exception {
+                if(!balanceInquiryValidation.getCode().equals(ResponseCode.APPROVED.getCode())){
+                    return constructBaseResponse(balanceInquiryValidation.getCode(),balanceInquiryValidation.getMessage(),printNumber,null);
+                }
+
+                BaseResponse baseResponse = validate(balanceInquiryValidation,saleRequest,printNumber);
+                if(!baseResponse.getCode().equals(ResponseCode.APPROVED.getCode())){
+                    return baseResponse;
+                }
+
+                return processSale(balanceInquiryValidation,saleRequest,baseResponse,printNumber);
+            }
+        });
+    }
+
 }
