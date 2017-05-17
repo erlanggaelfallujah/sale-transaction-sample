@@ -6,6 +6,7 @@ import dev.ranggalabs.common.util.ResponseCode;
 import dev.ranggalabs.restapi.model.BalanceInquiryValidation;
 import dev.ranggalabs.restapi.model.BaseModel;
 import io.reactivex.Observable;
+import io.reactivex.ObservableSource;
 import io.reactivex.annotations.NonNull;
 import io.reactivex.functions.Function;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,7 +31,7 @@ public class SaleServiceImpl extends BaseService implements SaleService {
             return constructBaseResponse(ResponseCode.AMOUNT_EMPTY.getCode(), ResponseCode.AMOUNT_EMPTY.getDetail(), printNumber, saleRequest.getAmount());
         }
 
-        BalanceInquiryValidation balanceInquiryValidation = balanceService.validateBalanceInquiry(printNumber);
+        BalanceInquiryValidation balanceInquiryValidation = balanceService.validationBalanceInquiryByPrintNumber(printNumber);
         if(!balanceInquiryValidation.getCode().equals(ResponseCode.APPROVED.getCode())){
             return constructBaseResponse(balanceInquiryValidation.getCode(),balanceInquiryValidation.getMessage(),printNumber,null);
         }
@@ -47,14 +48,6 @@ public class SaleServiceImpl extends BaseService implements SaleService {
     @Async
     public CompletableFuture<BaseResponse> asyncSale(String printNumber, SaleRequest saleRequest) {
         return CompletableFuture.completedFuture(sale(printNumber,saleRequest));
-    }
-
-    @Override
-    public Observable<BaseResponse> saleObs(String printNumber, SaleRequest saleRequest) {
-        return Observable.create(s->{
-           s.onNext(sale(printNumber,saleRequest));
-            s.onComplete();
-        });
     }
 
     private BaseResponse validate(BalanceInquiryValidation balanceInquiryValidation, SaleRequest saleRequest, String printNumber){
@@ -80,22 +73,35 @@ public class SaleServiceImpl extends BaseService implements SaleService {
         return constructBaseResponse(ResponseCode.APPROVED.getCode(),ResponseCode.APPROVED.getDetail(),printNumber,remainingBalance);
     }
 
-    @Override
-    public Observable<BaseResponse> saleObsV2(String printNumber, SaleRequest saleRequest) {
-        Observable<BalanceInquiryValidation> balanceInquiryValidation = balanceService.validateBalanceInquiryObs(printNumber);
-        return balanceInquiryValidation.map(new Function<BalanceInquiryValidation, BaseResponse>() {
+    private Observable<BaseResponse> processSaleObs(BalanceInquiryValidation balanceInquiryValidation, SaleRequest saleRequest, BaseResponse baseResponse, String printNumber){
+        BigDecimal remainingBalance = baseResponse.getBalance().subtract(saleRequest.getAmount());
+        return balanceService.updateObs(balanceInquiryValidation.getBalance(),remainingBalance).map(new Function<BaseModel, BaseResponse>() {
             @Override
-            public BaseResponse apply(@NonNull BalanceInquiryValidation balanceInquiryValidation) throws Exception {
+            public BaseResponse apply(@NonNull BaseModel baseModel) throws Exception {
+                if(!baseModel.getCode().equals(ResponseCode.APPROVED.getCode())){
+                    return constructBaseResponse(baseModel.getCode(),baseModel.getMessage(),printNumber,saleRequest.getAmount());
+                }
+                return constructBaseResponse(ResponseCode.APPROVED.getCode(),ResponseCode.APPROVED.getDetail(),printNumber,remainingBalance);
+            }
+        });
+    }
+
+    @Override
+    public Observable<BaseResponse> saleObsV3(String printNumber, SaleRequest saleRequest) {
+        Observable<BalanceInquiryValidation> balanceInquiryValidation = balanceService.validationBalanceInquiryByPrintNumberObsV3(printNumber);
+        return balanceInquiryValidation.flatMap(new Function<BalanceInquiryValidation, ObservableSource<BaseResponse>>() {
+            @Override
+            public ObservableSource<BaseResponse> apply(@NonNull BalanceInquiryValidation balanceInquiryValidation) throws Exception {
                 if(!balanceInquiryValidation.getCode().equals(ResponseCode.APPROVED.getCode())){
-                    return constructBaseResponse(balanceInquiryValidation.getCode(),balanceInquiryValidation.getMessage(),printNumber,null);
+                    return Observable.just(constructBaseResponse(balanceInquiryValidation.getCode(),balanceInquiryValidation.getMessage(),printNumber,null));
                 }
 
                 BaseResponse baseResponse = validate(balanceInquiryValidation,saleRequest,printNumber);
                 if(!baseResponse.getCode().equals(ResponseCode.APPROVED.getCode())){
-                    return baseResponse;
+                    return Observable.just(baseResponse);
                 }
 
-                return processSale(balanceInquiryValidation,saleRequest,baseResponse,printNumber);
+                return processSaleObs(balanceInquiryValidation,saleRequest,baseResponse,printNumber);
             }
         });
     }

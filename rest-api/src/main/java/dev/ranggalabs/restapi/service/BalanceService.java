@@ -15,12 +15,11 @@ import java.util.concurrent.CompletableFuture;
  */
 public interface BalanceService {
     BaseResponse inquiry(String printNumber);
-    Observable<BaseResponse> inquiryObsV2(String printNumber);
-    BalanceInquiryValidation validateBalanceInquiry(String printNumber);
-    Observable<BalanceInquiryValidation> validateBalanceInquiryObs(String printNumber);
+    BalanceInquiryValidation validationBalanceInquiryByPrintNumber(String printNumber);
+    Observable<BalanceInquiryValidation> validationBalanceInquiryByPrintNumberObsV3(String printNumber);
     BaseModel update(Balance balance, BigDecimal remainingBalance);
+    Observable<BaseModel> updateObs(Balance balance, BigDecimal remainingBalance);
 
+    Observable<BaseResponse> inquiryObsV3(String printNumber);
     CompletableFuture<BaseResponse> asyncInquiry(String printNumber);
-    Observable<BaseResponse> inquiryObs(String printNumber);
-    Observable<CardValidation> cardValidationObs(String printNumber);
 }
