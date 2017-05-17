@@ -12,6 +12,5 @@ import java.util.concurrent.CompletableFuture;
 public interface SaleService {
     BaseResponse sale(String printNumber, SaleRequest saleRequest);
     CompletableFuture<BaseResponse> asyncSale(String printNumber, SaleRequest saleRequest);
-    Observable<BaseResponse> saleObs(String printNumber, SaleRequest saleRequest);
-    Observable<BaseResponse> saleObsV2(String printNumber, SaleRequest saleRequest);
+    Observable<BaseResponse> saleObsV3(String printNumber, SaleRequest saleRequest);
 }

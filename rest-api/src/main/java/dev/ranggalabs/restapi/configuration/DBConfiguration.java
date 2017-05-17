@@ -1,5 +1,6 @@
 package dev.ranggalabs.restapi.configuration;
 
+import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.sql2o.Sql2o;

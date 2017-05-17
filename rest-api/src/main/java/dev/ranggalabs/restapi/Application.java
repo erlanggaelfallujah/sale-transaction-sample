@@ -14,6 +14,7 @@ import java.util.concurrent.Executor;
 @SpringBootApplication
 @EnableAsync
 public class Application extends AsyncConfigurerSupport {
+
     public static void main(String[] args) {
         SpringApplication.run(Application.class, args);
     }
@@ -21,13 +22,11 @@ public class Application extends AsyncConfigurerSupport {
     @Override
     public Executor getAsyncExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(2);
-        executor.setMaxPoolSize(2);
-        executor.setQueueCapacity(500);
+        executor.setCorePoolSize(5);
+        executor.setMaxPoolSize(10);
+        executor.setQueueCapacity(2000);
         executor.setThreadNamePrefix("sale-transaction-");
         executor.initialize();
         return executor;
     }
-
-
 }

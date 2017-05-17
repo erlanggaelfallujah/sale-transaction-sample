@@ -2,6 +2,7 @@ package dev.ranggalabs.restapi.repository;
 
 import dev.ranggalabs.enitity.Balance;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Repository;
 import org.sql2o.Connection;
 import org.sql2o.Sql2o;
@@ -47,6 +48,11 @@ public class BalanceRepositoryImpl implements BalanceRepository {
             .addParameter("version", balance.getVersion())
             .executeUpdate();
             con.commit();
+
+            if(con.getResult()<1){
+                //System.out.println("Locking Exception Occured");
+                throw new OptimisticLockingFailureException("Locking Exception Occured");
+            }
         }
     }
 }
