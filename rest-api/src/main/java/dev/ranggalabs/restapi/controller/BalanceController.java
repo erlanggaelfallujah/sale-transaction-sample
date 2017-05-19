@@ -5,6 +5,7 @@ import dev.ranggalabs.common.dto.SaleRequest;
 import dev.ranggalabs.restapi.service.BalanceService;
 import dev.ranggalabs.restapi.service.SaleService;
 import io.reactivex.Observable;
+import io.reactivex.schedulers.Schedulers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.context.request.async.DeferredResult;
@@ -65,8 +66,8 @@ public class BalanceController {
 
     @RequestMapping(method = RequestMethod.GET, value = "/obs/inquiry/{printNumber}")
     public DeferredResult<BaseResponse> inquiryObsV3(@PathVariable String printNumber){
-        Observable<BaseResponse> o = balanceService.inquiryObsV3(printNumber);
         DeferredResult<BaseResponse> deffered = new DeferredResult<>();
+        Observable<BaseResponse> o = balanceService.inquiryObsV3(printNumber);
         o.subscribe(m->deffered.setResult(m),e->deffered.setErrorResult(e));
         return deffered;
     }

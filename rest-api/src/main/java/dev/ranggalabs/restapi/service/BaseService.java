@@ -11,6 +11,7 @@ import io.reactivex.Observable;
 import io.reactivex.ObservableSource;
 import io.reactivex.annotations.NonNull;
 import io.reactivex.functions.Function;
+import io.reactivex.schedulers.Schedulers;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.math.BigDecimal;
@@ -39,6 +40,7 @@ public class BaseService {
         return validationCardObservable(printNumber).flatMap(new Function<CardValidation, ObservableSource<CardValidation>>() {
             @Override
             public ObservableSource<CardValidation> apply(@NonNull CardValidation cardValidation) throws Exception {
+                System.out.println("ValidationCardByPrintNumberObs flatMap on " + Thread.currentThread().getName());
                 if(!cardValidation.getCode().equals(ResponseCode.APPROVED.getCode())){
                     return Observable.just(cardValidation);
                 }
@@ -51,6 +53,7 @@ public class BaseService {
         return findOneCardByPrintNumberObs(printNumber).flatMap(new Function<Card, ObservableSource<CardValidation>>() {
             @Override
             public ObservableSource<CardValidation> apply(@NonNull Card card) throws Exception {
+                System.out.println("ValidationCardObservable flatMap on " + Thread.currentThread().getName());
                 CardValidation cardValidation = new CardValidation();
                 if(card.getId()==null){
                     cardValidation.setMessage(ResponseCode.CARD_NOT_FOUND.getDetail());
@@ -72,6 +75,7 @@ public class BaseService {
         return Observable.fromCallable(new Callable<Card>() {
             @Override
             public Card call() throws Exception {
+                System.out.println("Find one card on " + Thread.currentThread().getName());
                 Card card = cardRepository.findOneByPrintNumber(printNumber);
                 if(card==null){
                     return new Card();
@@ -107,6 +111,7 @@ public class BaseService {
         return Observable.fromCallable(new Callable<Account>() {
             @Override
             public Account call() throws Exception {
+                System.out.println("Find one account on " + Thread.currentThread().getName());
                 Account account = accountRepository.findOneByCif(cif);
                 if(account==null){
                     return new Account();
@@ -120,6 +125,7 @@ public class BaseService {
         return findOneAccountByCifObs(cif).flatMap(new Function<Account, ObservableSource<CardValidation>>() {
             @Override
             public ObservableSource<CardValidation> apply(@NonNull Account account) throws Exception {
+                System.out.println("validationAccountByCifObs flatMap on " + Thread.currentThread().getName());
                 CardValidation cardValidation = new CardValidation();
                 if(account.getId()==null){
                     cardValidation.setMessage(ResponseCode.ACCOUNT_NOT_FOUND.getDetail());

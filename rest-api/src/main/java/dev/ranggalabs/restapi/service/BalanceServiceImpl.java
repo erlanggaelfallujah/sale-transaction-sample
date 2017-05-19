@@ -11,6 +11,7 @@ import io.reactivex.Observable;
 import io.reactivex.ObservableSource;
 import io.reactivex.annotations.NonNull;
 import io.reactivex.functions.Function;
+import io.reactivex.schedulers.Schedulers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,8 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Created by erlangga on 4/25/2017.
@@ -42,12 +45,13 @@ public class BalanceServiceImpl extends BaseService implements BalanceService {
         return validationBalanceInquiryByPrintNumberObsV3(printNumber).flatMap(new Function<BalanceInquiryValidation, ObservableSource<BaseResponse>>() {
             @Override
             public ObservableSource<BaseResponse> apply(@NonNull BalanceInquiryValidation balanceInquiryValidation) throws Exception {
+                System.out.println("inquiryObsV3 flatMap on " + Thread.currentThread().getName());
                 if(!balanceInquiryValidation.getCode().equals(ResponseCode.APPROVED.getCode())){
                     return Observable.just(constructBaseResponse(balanceInquiryValidation.getCode(),balanceInquiryValidation.getMessage(),printNumber,null));
                 }
                 return Observable.just(constructBaseResponse(ResponseCode.APPROVED.getCode(),ResponseCode.APPROVED.getDetail(),printNumber,balanceInquiryValidation.getBalance().getAmount()));
             }
-        });
+        }).subscribeOn(Schedulers.io()).observeOn(Schedulers.computation());
     }
 
     @Override
@@ -55,6 +59,7 @@ public class BalanceServiceImpl extends BaseService implements BalanceService {
         return validationCardByPrintNumberObs(printNumber).flatMap(new Function<CardValidation, ObservableSource<BalanceInquiryValidation>>() {
             @Override
             public ObservableSource<BalanceInquiryValidation> apply(@NonNull CardValidation cardValidation) throws Exception {
+                System.out.println("validationBalanceInquiryByPrintNumberObsV3 flatMap on " + Thread.currentThread().getName());
                 BalanceInquiryValidation balanceInquiryValidation = new BalanceInquiryValidation();
                 if(!cardValidation.getCode().equals(ResponseCode.APPROVED.getCode())){
                     balanceInquiryValidation.setCode(cardValidation.getCode());
@@ -70,6 +75,7 @@ public class BalanceServiceImpl extends BaseService implements BalanceService {
         return findOneBalanceByAccountIdObs(accountId).flatMap(new Function<Balance, ObservableSource<BalanceInquiryValidation>>() {
             @Override
             public ObservableSource<BalanceInquiryValidation> apply(@NonNull Balance balance) throws Exception {
+                System.out.println("ValidationAccountByAccountIdObs flatMap on " + Thread.currentThread().getName());
                 BalanceInquiryValidation balanceInquiryValidation = new BalanceInquiryValidation();
                 if(balance.getId()==null){
                     balanceInquiryValidation.setCode(ResponseCode.CIF_BALANCE_NOT_FOUND.getCode());
@@ -80,13 +86,14 @@ public class BalanceServiceImpl extends BaseService implements BalanceService {
                 balanceInquiryValidation.setBalance(balance);
                 return Observable.just(balanceInquiryValidation);
             }
-        });
+        }).subscribeOn(Schedulers.io());
     }
 
     private Observable<Balance> findOneBalanceByAccountIdObs(BigDecimal accountId){
         return Observable.fromCallable(new Callable<Balance>() {
             @Override
             public Balance call() throws Exception {
+                System.out.println("Find one balance on " + Thread.currentThread().getName());
                 Balance balance = balanceRepository.findOneByAccountId(accountId);
                 if (balance == null) {
                     return new Balance();
@@ -139,6 +146,7 @@ public class BalanceServiceImpl extends BaseService implements BalanceService {
         return Observable.fromCallable(new Callable<BaseModel>() {
             @Override
             public BaseModel call() throws Exception {
+                System.out.println("Update balance on " + Thread.currentThread().getName());
                 return update(balance,remainingBalance);
             }
         });

@@ -9,12 +9,16 @@ import io.reactivex.Observable;
 import io.reactivex.ObservableSource;
 import io.reactivex.annotations.NonNull;
 import io.reactivex.functions.Function;
+import io.reactivex.schedulers.Schedulers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Created by erlangga on 4/26/2017.
@@ -63,6 +67,26 @@ public class SaleServiceImpl extends BaseService implements SaleService {
         return constructBaseResponse(ResponseCode.APPROVED.getCode(),ResponseCode.APPROVED.getDetail(),printNumber,balance);
     }
 
+    private Observable<BaseResponse> validateObs(BalanceInquiryValidation balanceInquiryValidation, SaleRequest saleRequest, String printNumber){
+        return Observable.fromCallable(new Callable<BaseResponse>() {
+            @Override
+            public BaseResponse call() throws Exception {
+                System.out.println("validateObs flatMap on " + Thread.currentThread().getName());
+                BigDecimal balance = balanceInquiryValidation.getBalance().getAmount();
+                int resVal1 = balance.compareTo(BigDecimal.ZERO);
+                if(resVal1==0 || resVal1==-1){
+                    return constructBaseResponse(ResponseCode.INSUFFICIENT_BALANCE.getCode(),ResponseCode.INSUFFICIENT_BALANCE.getDetail(),printNumber,saleRequest.getAmount());
+                }
+                int resVal2 = balance.compareTo(saleRequest.getAmount());
+                if(resVal2==-1){
+                    return constructBaseResponse(ResponseCode.INSUFFICIENT_BALANCE.getCode(),ResponseCode.INSUFFICIENT_BALANCE.getDetail(),printNumber,saleRequest.getAmount());
+                }
+                BigDecimal remainingBalance = balance.subtract(saleRequest.getAmount());
+                return constructBaseResponse(ResponseCode.APPROVED.getCode(),ResponseCode.APPROVED.getDetail(),printNumber,remainingBalance);
+            }
+        });
+    }
+
     private BaseResponse processSale(BalanceInquiryValidation balanceInquiryValidation, SaleRequest saleRequest, BaseResponse baseResponse, String printNumber){
         // update balance
         BigDecimal remainingBalance = baseResponse.getBalance().subtract(saleRequest.getAmount());
@@ -74,36 +98,39 @@ public class SaleServiceImpl extends BaseService implements SaleService {
     }
 
     private Observable<BaseResponse> processSaleObs(BalanceInquiryValidation balanceInquiryValidation, SaleRequest saleRequest, BaseResponse baseResponse, String printNumber){
-        BigDecimal remainingBalance = baseResponse.getBalance().subtract(saleRequest.getAmount());
-        return balanceService.updateObs(balanceInquiryValidation.getBalance(),remainingBalance).map(new Function<BaseModel, BaseResponse>() {
+        return balanceService.updateObs(balanceInquiryValidation.getBalance(),baseResponse.getBalance()).map(new Function<BaseModel, BaseResponse>() {
             @Override
             public BaseResponse apply(@NonNull BaseModel baseModel) throws Exception {
+                System.out.println("processSaleObs flatMap on " + Thread.currentThread().getName());
                 if(!baseModel.getCode().equals(ResponseCode.APPROVED.getCode())){
                     return constructBaseResponse(baseModel.getCode(),baseModel.getMessage(),printNumber,saleRequest.getAmount());
                 }
-                return constructBaseResponse(ResponseCode.APPROVED.getCode(),ResponseCode.APPROVED.getDetail(),printNumber,remainingBalance);
+                return constructBaseResponse(ResponseCode.APPROVED.getCode(),ResponseCode.APPROVED.getDetail(),printNumber,baseResponse.getBalance());
             }
         });
     }
 
     @Override
     public Observable<BaseResponse> saleObsV3(String printNumber, SaleRequest saleRequest) {
-        Observable<BalanceInquiryValidation> balanceInquiryValidation = balanceService.validationBalanceInquiryByPrintNumberObsV3(printNumber);
-        return balanceInquiryValidation.flatMap(new Function<BalanceInquiryValidation, ObservableSource<BaseResponse>>() {
+        return balanceService.validationBalanceInquiryByPrintNumberObsV3(printNumber).flatMap(new Function<BalanceInquiryValidation, ObservableSource<BaseResponse>>() {
             @Override
             public ObservableSource<BaseResponse> apply(@NonNull BalanceInquiryValidation balanceInquiryValidation) throws Exception {
+                System.out.println("saleObsV3 flatMap on " + Thread.currentThread().getName());
                 if(!balanceInquiryValidation.getCode().equals(ResponseCode.APPROVED.getCode())){
                     return Observable.just(constructBaseResponse(balanceInquiryValidation.getCode(),balanceInquiryValidation.getMessage(),printNumber,null));
                 }
 
-                BaseResponse baseResponse = validate(balanceInquiryValidation,saleRequest,printNumber);
-                if(!baseResponse.getCode().equals(ResponseCode.APPROVED.getCode())){
-                    return Observable.just(baseResponse);
-                }
-
-                return processSaleObs(balanceInquiryValidation,saleRequest,baseResponse,printNumber);
+                return validateObs(balanceInquiryValidation,saleRequest,printNumber).flatMap(new Function<BaseResponse, ObservableSource<BaseResponse>>() {
+                    @Override
+                    public ObservableSource<BaseResponse> apply(@NonNull BaseResponse baseResponse) throws Exception {
+                        System.out.println("saleObsV3-validateObs flatMap on " + Thread.currentThread().getName());
+                        if(!baseResponse.getCode().equals(ResponseCode.APPROVED.getCode())){
+                            return Observable.just(baseResponse);
+                        }
+                        return processSaleObs(balanceInquiryValidation,saleRequest,baseResponse,printNumber).subscribeOn(Schedulers.io());
+                    }
+                }).subscribeOn(Schedulers.computation());
             }
-        });
+        }).subscribeOn(Schedulers.io()).observeOn(Schedulers.computation());
     }
-
 }
