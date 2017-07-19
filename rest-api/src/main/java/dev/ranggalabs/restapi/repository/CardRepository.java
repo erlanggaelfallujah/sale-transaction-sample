@@ -9,4 +9,5 @@ import java.math.BigDecimal;
  */
 public interface CardRepository {
     Card findOneByPrintNumber(String printNumber);
+    Card findOneByPrintNumberAsync(String printNumber);
 }

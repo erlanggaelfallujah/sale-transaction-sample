@@ -9,6 +9,7 @@ import io.reactivex.schedulers.Schedulers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.context.request.async.DeferredResult;
+import reactor.core.publisher.Mono;
 
 /**
  * Created by erlangga on 4/25/2017.
@@ -47,12 +48,6 @@ public class BalanceController {
     @RequestMapping(method = RequestMethod.GET, value = "/async/inquiry/{printNumber}")
     public DeferredResult<BaseResponse> asyncInquiry(@PathVariable String printNumber){
         DeferredResult<BaseResponse> result = new DeferredResult<>();
-
-/*        balanceService.asyncInquiry(printNumber).thenApply(baseResponse -> {
-           result.setResult(Json.toJson(baseResponse));
-            return result;
-        });*/
-
         balanceService.asyncInquiry(printNumber).whenComplete((baseResponse, throwable) -> {
             if(throwable!=null){
                 result.setErrorResult(throwable);
@@ -60,7 +55,6 @@ public class BalanceController {
                 result.setResult(baseResponse);
             }
         });
-
         return result;
     }
 
@@ -72,11 +66,21 @@ public class BalanceController {
         return deffered;
     }
 
+    @RequestMapping(method = RequestMethod.GET, value = "/reactor/inquiry/{printNumber}")
+    public Mono<BaseResponse> inquiryReactor(@PathVariable String printNumber){
+        return balanceService.inquiryReactor(printNumber);
+    }
+
     @RequestMapping(method = RequestMethod.POST, value = "/obs/sale/{printNumber}")
     public DeferredResult<BaseResponse> saleObsV3(@PathVariable String printNumber, @RequestBody SaleRequest saleRequest){
         DeferredResult<BaseResponse> result = new DeferredResult<>();
         Observable<BaseResponse> o = saleService.saleObsV3(printNumber,saleRequest);
         o.subscribe(m->result.setResult(m),e->result.setErrorResult(e));
         return result;
+    }
+
+    @RequestMapping(method = RequestMethod.POST, value = "/reactor/sale/{printNumber}")
+    public Mono<BaseResponse> saleReactor(@PathVariable String printNumber, @RequestBody SaleRequest saleRequest){
+        return saleService.saleMono(printNumber,saleRequest);
     }
 }

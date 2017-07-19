@@ -2,11 +2,14 @@ package dev.ranggalabs.restapi.repository;
 
 import dev.ranggalabs.enitity.Account;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Repository;
 import org.sql2o.Connection;
 import org.sql2o.Sql2o;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Created by erlangga on 4/25/2017.
@@ -35,5 +38,19 @@ public class AccountRepositoryImpl implements AccountRepository {
         }finally {
             con.close();
         }
+    }
+
+    @Override
+    @Async
+    public Account findOneByCifAsync(String cif) {
+        CompletableFuture<Account> accountCompletableFuture = CompletableFuture.completedFuture(findOneByCif(cif));
+        try {
+            return accountCompletableFuture.get();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 }
