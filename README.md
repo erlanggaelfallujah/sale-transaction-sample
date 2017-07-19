@@ -1,4 +1,4 @@
-# Simpe Sale Asynchronous Transaction
+# Simple Sale Asynchronous Transaction
 
 == Projects
 
@@ -9,3 +9,4 @@ The following projects are used in this project:
 * https://github.com/brettwooldridge/HikariCP/ [HikariCP]
 * https://github.com/ReactiveX/RxJava [RxJava]
 * http://www.sql2o.org/ [sql2o]
+* https://projectreactor.io/ [Reactor]
