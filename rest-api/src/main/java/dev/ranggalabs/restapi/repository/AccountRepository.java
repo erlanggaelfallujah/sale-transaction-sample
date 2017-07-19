@@ -7,4 +7,5 @@ import dev.ranggalabs.enitity.Account;
  */
 public interface AccountRepository {
     Account findOneByCif(String cif);
+    Account findOneByCifAsync(String cif);
 }

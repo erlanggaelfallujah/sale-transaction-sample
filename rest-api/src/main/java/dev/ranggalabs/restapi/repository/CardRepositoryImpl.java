@@ -2,12 +2,15 @@ package dev.ranggalabs.restapi.repository;
 
 import dev.ranggalabs.enitity.Card;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Repository;
 import org.sql2o.Connection;
 import org.sql2o.Sql2o;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Created by erlangga on 4/25/2017.
@@ -32,5 +35,19 @@ public class CardRepositoryImpl implements CardRepository {
         }finally {
             con.close();
         }
+    }
+
+    @Override
+    @Async
+    public Card findOneByPrintNumberAsync(String printNumber) {
+        CompletableFuture<Card> cardCompletableFuture = CompletableFuture.completedFuture(findOneByPrintNumber(printNumber));
+        try {
+            return cardCompletableFuture.get();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 }

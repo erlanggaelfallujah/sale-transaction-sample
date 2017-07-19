@@ -9,5 +9,6 @@ import java.math.BigDecimal;
  */
 public interface BalanceRepository {
     Balance findOneByAccountId(BigDecimal accountId);
+    Balance findOneByAccountIdAsync(BigDecimal accountId);
     void update(Balance balance, BigDecimal remainingAmount);
 }

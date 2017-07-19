@@ -15,12 +15,10 @@ import io.reactivex.schedulers.Schedulers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 
 /**
  * Created by erlangga on 4/25/2017.
@@ -55,6 +53,19 @@ public class BalanceServiceImpl extends BaseService implements BalanceService {
     }
 
     @Override
+    public Mono<BaseResponse> inquiryReactor(String printNumber) {
+        return validationBalanceInquiryByPrintNumberMono(printNumber).map(new java.util.function.Function<BalanceInquiryValidation, BaseResponse>() {
+            @Override
+            public BaseResponse apply(BalanceInquiryValidation balanceInquiryValidation) {
+                if(!balanceInquiryValidation.getCode().equals(ResponseCode.APPROVED.getCode())){
+                    return constructBaseResponse(balanceInquiryValidation.getCode(),balanceInquiryValidation.getMessage(),printNumber,null);
+                }
+                return constructBaseResponse(ResponseCode.APPROVED.getCode(),ResponseCode.APPROVED.getDetail(),printNumber,balanceInquiryValidation.getBalance().getAmount());
+            }
+        });
+    }
+
+    @Override
     public Observable<BalanceInquiryValidation> validationBalanceInquiryByPrintNumberObsV3(String printNumber) {
         return validationCardByPrintNumberObs(printNumber).flatMap(new Function<CardValidation, ObservableSource<BalanceInquiryValidation>>() {
             @Override
@@ -67,6 +78,22 @@ public class BalanceServiceImpl extends BaseService implements BalanceService {
                     return Observable.just(balanceInquiryValidation);
                 }
                 return validationAccountByAccountIdObs(cardValidation.getAccountId());
+            }
+        });
+    }
+
+    @Override
+    public Mono<BalanceInquiryValidation> validationBalanceInquiryByPrintNumberMono(String printNumber) {
+        return validationCardByPrintNumberMono(printNumber).flatMap(new java.util.function.Function<CardValidation, Mono<? extends BalanceInquiryValidation>>() {
+            @Override
+            public Mono<? extends BalanceInquiryValidation> apply(CardValidation cardValidation) {
+                BalanceInquiryValidation balanceInquiryValidation = new BalanceInquiryValidation();
+                if(!cardValidation.getCode().equals(ResponseCode.APPROVED.getCode())){
+                    balanceInquiryValidation.setCode(cardValidation.getCode());
+                    balanceInquiryValidation.setMessage(cardValidation.getMessage());
+                    return Mono.just(balanceInquiryValidation);
+                }
+                return validationAccountByAccountIdMono(cardValidation.getAccountId());
             }
         });
     }
@@ -89,11 +116,41 @@ public class BalanceServiceImpl extends BaseService implements BalanceService {
         }).subscribeOn(Schedulers.io());
     }
 
+    private Mono<BalanceInquiryValidation> validationAccountByAccountIdMono(BigDecimal accountId){
+        return findOneBalanceByAccountIdMono(accountId).map(new java.util.function.Function<Balance, BalanceInquiryValidation>() {
+            @Override
+            public BalanceInquiryValidation apply(Balance balance) {
+                BalanceInquiryValidation balanceInquiryValidation = new BalanceInquiryValidation();
+                if(balance.getId()==null){
+                    balanceInquiryValidation.setCode(ResponseCode.CIF_BALANCE_NOT_FOUND.getCode());
+                    balanceInquiryValidation.setMessage(ResponseCode.CIF_BALANCE_NOT_FOUND.getDetail());
+                }
+                balanceInquiryValidation.setCode(ResponseCode.APPROVED.getCode());
+                balanceInquiryValidation.setMessage(ResponseCode.APPROVED.getDetail());
+                balanceInquiryValidation.setBalance(balance);
+                return balanceInquiryValidation;
+            }
+        });
+    }
+
     private Observable<Balance> findOneBalanceByAccountIdObs(BigDecimal accountId){
         return Observable.fromCallable(new Callable<Balance>() {
             @Override
             public Balance call() throws Exception {
                 System.out.println("Find one balance on " + Thread.currentThread().getName());
+                Balance balance = balanceRepository.findOneByAccountId(accountId);
+                if (balance == null) {
+                    return new Balance();
+                }
+                return balance;
+            }
+        });
+    }
+
+    private Mono<Balance> findOneBalanceByAccountIdMono(BigDecimal accountId){
+        return Mono.fromCallable(new Callable<Balance>() {
+            @Override
+            public Balance call() throws Exception {
                 Balance balance = balanceRepository.findOneByAccountId(accountId);
                 if (balance == null) {
                     return new Balance();
@@ -128,6 +185,30 @@ public class BalanceServiceImpl extends BaseService implements BalanceService {
     }
 
     @Override
+    public BalanceInquiryValidation validationBalanceInquiryByPrintNumberAsync(String printNumber) {
+        CardValidation cardValidation = validationAsync(printNumber);
+
+        BalanceInquiryValidation balanceInquiryValidation = new BalanceInquiryValidation();
+        if(!cardValidation.getCode().equals(ResponseCode.APPROVED.getCode())){
+            balanceInquiryValidation.setCode(cardValidation.getCode());
+            balanceInquiryValidation.setMessage(cardValidation.getMessage());
+            return balanceInquiryValidation;
+        }
+
+        Balance balance = balanceRepository.findOneByAccountIdAsync(cardValidation.getAccountId());
+        if(balance==null){
+            balanceInquiryValidation.setCode(ResponseCode.CIF_BALANCE_NOT_FOUND.getCode());
+            balanceInquiryValidation.setMessage(ResponseCode.CIF_BALANCE_NOT_FOUND.getDetail());
+            return balanceInquiryValidation;
+        }
+
+        balanceInquiryValidation.setCode(ResponseCode.APPROVED.getCode());
+        balanceInquiryValidation.setMessage(ResponseCode.APPROVED.getDetail());
+        balanceInquiryValidation.setBalance(balance);
+        return balanceInquiryValidation;
+    }
+
+    @Override
     public BaseModel update(Balance balance, BigDecimal remainingBalance) {
         BaseModel baseModel = new BaseModel();
         try{
@@ -142,11 +223,35 @@ public class BalanceServiceImpl extends BaseService implements BalanceService {
     }
 
     @Override
+    @Async
+    public BaseModel updateAsync(Balance balance, BigDecimal remainingBalance) {
+       CompletableFuture<BaseModel> baseModelCompletableFuture = CompletableFuture.completedFuture(update(balance,remainingBalance));
+        try {
+            return baseModelCompletableFuture.get();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    @Override
     public Observable<BaseModel> updateObs(Balance balance, BigDecimal remainingBalance) {
         return Observable.fromCallable(new Callable<BaseModel>() {
             @Override
             public BaseModel call() throws Exception {
                 System.out.println("Update balance on " + Thread.currentThread().getName());
+                return update(balance,remainingBalance);
+            }
+        });
+    }
+
+    @Override
+    public Mono<BaseModel> updateMono(Balance balance, BigDecimal remainingBalance) {
+        return Mono.fromCallable(new Callable<BaseModel>() {
+            @Override
+            public BaseModel call() throws Exception {
                 return update(balance,remainingBalance);
             }
         });
